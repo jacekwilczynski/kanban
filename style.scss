@@ -1,0 +1,97 @@
+/// Replace `$search` with `$replace` in `$string`
+/// @author Hugo Giraudel
+/// @param {String} $string - Initial string
+/// @param {String} $search - Substring to replace
+/// @param {String} $replace ('') - New value
+/// @return {String} - Updated string
+@function str-replace($string, $search, $replace: '') {
+  $index: str-index($string, $search);
+  
+  @if $index {
+    @return str-slice($string, 1, $index - 1) + $replace + str-replace(str-slice($string, $index + str-length($search)), $search, $replace);
+  }
+  
+  @return $string;
+}
+
+$color_board: #ffba00;
+$color_column: #39ba48;
+$font_primary: Lato;
+
+@import url(https://fonts.googleapis.com/css?family=#{str-replace(unquote($font_primary), ' ', '+')});
+
+@mixin color($base_value) {
+	color: $base_value;
+	
+	&::selection {
+		background-color: lighten($base_value, 15%);
+		color: #000;
+	}
+
+}
+
+* {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+	&:focus {
+		outline: none;
+	}
+}
+
+body {
+	font-family: $font_primary, sans-serif;
+}
+
+.kanban-btn {
+	border: none;
+	background: none;
+	color: inherit;
+	cursor: pointer;
+	margin-right: 20px;
+	opacity: 1;
+	outline: none;
+	transition: transform .1s;
+
+	&:hover {
+		opacity: .7;
+	}
+
+	&:active {
+		transform: scale(.8, .8);
+	}
+}
+
+.kanban-drag {
+	font-size: 22px;
+	padding-right: 1em;
+}
+
+.kanban-board {
+	color: $color_board;
+	margin: 20px;
+}
+
+.kanban-board-title {
+	@include color($color_board);
+	margin-bottom: 10px;
+	padding: 10px;
+}
+
+.kanban-board-column-container {
+	background-color: rgba(#000, .1);
+	list-style: none;
+}
+
+.kanban-column {
+	color: $color_column;
+	float: left;
+	margin: 10px;
+}
+
+.kanban-column-header {
+	@include color($color_column);
+	display: flex;
+	margin-bottom: 8px;
+	padding: 8px;
+}

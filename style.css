@@ -1,0 +1,60 @@
+@import url(https://fonts.googleapis.com/css?family=Lato);
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0; }
+  *:focus {
+    outline: none; }
+
+body {
+  font-family: Lato, sans-serif; }
+
+.kanban-btn {
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  margin-right: 20px;
+  opacity: 1;
+  outline: none;
+  transition: transform .1s; }
+  .kanban-btn:hover {
+    opacity: .7; }
+  .kanban-btn:active {
+    transform: scale(0.8, 0.8); }
+
+.kanban-drag {
+  font-size: 22px;
+  padding-right: 1em; }
+
+.kanban-board {
+  color: #ffba00;
+  margin: 20px; }
+
+.kanban-board-title {
+  color: #ffba00;
+  margin-bottom: 10px;
+  padding: 10px; }
+  .kanban-board-title::selection {
+    background-color: #ffcf4d;
+    color: #000; }
+
+.kanban-board-column-container {
+  background-color: rgba(0, 0, 0, 0.1);
+  list-style: none; }
+
+.kanban-column {
+  color: #39ba48;
+  float: left;
+  margin: 10px; }
+
+.kanban-column-header {
+  color: #39ba48;
+  display: flex;
+  margin-bottom: 8px;
+  padding: 8px; }
+  .kanban-column-header::selection {
+    background-color: #6dd279;
+    color: #000; }
+
+/*# sourceMappingURL=style.css.map */
