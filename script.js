@@ -1,13 +1,63 @@
-const random = {
-	getInteger: (min = 0, max = 1) => Math.floor(Math.random() * (max - min + 1) + min),
-	getString: (targetLength, components) => {
-		targetLength = targetLength || 10;
-		components = components || '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-		let result = '';
-		for (let i = 0; i < targetLength; i++) {
-			result += components[random.getInteger(0, components.length)];
+const jw = {
+	random: {
+		getInteger: (min = 0, max = 1) => Math.floor(Math.random() * (max - min + 1) + min),
+		getString: (targetLength, components) => {
+			targetLength = targetLength || 10;
+			components = components || '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+			let result = '';
+			for (let i = 0; i < targetLength; i++) {
+				result += components[random.getInteger(0, components.length)];
+			}
+			return result;
 		}
-		return result;
+	},
+
+	strings: {
+		camelize: (str, separators = [' ', '_', '-']) => {
+			let separatorIndex;
+			separators.forEach(separator => {
+				console.log(`Checking for the '${separator}' separator...`);
+				while ((separatorIndex = str.indexOf(separator)) !== -1) {
+					console.log(`Separator '${separator}' found at index ${separatorIndex}.`);
+					str = str.substring(0, separatorIndex).concat(str[separatorIndex + 1].toUpperCase(), str.substring(separatorIndex + 2, str.length));
+				}
+			});
+			return str;
+		},
+
+		concatClass: (...args) => {
+			const save = Array.prototype.toString;
+			Array.prototype.toString = function() {return this.join('-')};
+			const result = args.toString();
+			Array.prototype.toString = save;
+			return result;
+		},
+
+		generateCompoundClass: function(...args) {
+			if (args.length < 2) args = args[0];
+			if (!$.isArray(args)) return this.concatClass(args);
+			{
+				let result = this.concatClass(args[0]);
+				let lastClass = result;
+				let currentClass;
+				for (let i = 1; i < args.length; i++) {
+					currentClass = lastClass + '-' + this.concatClass(args[i]);
+					result += ' ' + currentClass;
+					lastClass = currentClass;
+				}
+				return result;
+			}
+		},
+
+		decamelize: (str, separator = '-') => {
+			for (let i = 0; i < str.length; i++) {
+				if (str[i] === str[i].toUpperCase()) {
+					str = str.substring(0, i).concat(separator, str.substring(i, str.length));
+					i += separator.length;
+				}
+			}
+			return str.toLowerCase();
+		}
 	}
 }
 
@@ -62,9 +112,74 @@ $.fn.makeEditable = function(linkedObject, linkedProperty, autoSelect = true) {
 		.blur(event => linkedObject[linkedProperty] = $(event.target).text());
 }
 
+class KanbanBuilder {
+	constructor(ownClass, tag = 'div', classPrefix = 'kanban') {
+		this.id = jw.random.getString(20);
+		this.ownClass = ownClass;
+		this.completeClassName = jw.strings.concatClass(classPrefix, ownClass);
+		this.$element = $(`<${tag}>`).addClass(this.completeClassName).attr('id', this.id);
+	}
+
+	add$(classNames, tag = 'div', $parentElement = this.$element) {
+		const jsObjectPropertyName = jw.strings.camelize(classNames[classNames.length - 1]);
+		const htmlClassString = jw.strings.concatClass(this.completeClassName, jw.strings.generateCompoundClass(classNames));
+		this[`\$${jsObjectPropertyName}`] = $(`<${tag}>`).$newElement.addClass(htmlClassString).appendTo($parentElement);
+		return this;
+	}
+
+	addHeader() {
+		return this.add$('header');
+	}
+
+	addDrag() {
+		return this.add$('drag', 'button', this.$header);
+	}
+
+	addTitle(tag) {
+		return this.add$('title', tag, this.$header).text('Enter ' + this.ownClass + ' title').makeEditable(this, 'title');
+	}
+
+	addRemoveButton() {
+		return this.add$(['btn', `remove-${this.ownClass}`], 'button', this.$header);
+	}
+
+	setChildClass(childClass) {
+		this.childClass = childClass;
+		this.childrenMapName = childClass + 's';
+		this[childrenMapName] = {};
+		this.addChildMethodName = jw.strings.camelize(`add ${this.childClass}`);
+		this.childContainerHtmlClass = jw.strings.concatClass(this.childClass, 'container');
+		this.childContainerObjectProperty = '$' + jw.strings.camelize(this.childContainerHtmlClass);
+		this[addChildMethodName] = function(child) {
+			this[childContainerObjectProperty].append(child.$element);
+			this[childrenMapName][child.id] = child;
+		}
+		return this;
+	}
+
+	addChildContainer(tag = 'div') {
+		if (!this.childClass) return this;
+		this.add$(this.childContainerHtmlClass, tag);
+		this.$element.sortable({
+			connectWith: `.${this.completeClassName}`
+		})
+		return this;
+	}
+
+	addAddChildButton(childClass) {
+		if (!this.childClass) return this;
+		this.add$(['btn', jw.strings.concatClass('add', this.childClass)], 'button', this.$header).click(this[addChildMethodName]);
+	}
+
+	remove() {
+		if (this.parent) delete this.parent[this.ownClass + 's'][this.id];
+		this.$element.remove();
+	}
+
+}
+
 class KanbanBoard {
 	constructor(container, name) {
-		this.id = random.getString(20);
 		this.name = name;
 		this.columns = [];
 		this.generateHTML();
@@ -160,4 +275,6 @@ class KanbanColumn {
 	}
 }
 
-const kt = new KanbanBoard($('#my-kanban'));
+$(function() {
+	// const kt = new KanbanBoard($('#my-kanban'));
+})
