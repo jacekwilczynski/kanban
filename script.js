@@ -6,7 +6,7 @@ const jw = {
 			components = components || '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 			let result = '';
 			for (let i = 0; i < targetLength; i++) {
-				result += components[random.getInteger(0, components.length)];
+				result += components[jw.random.getInteger(0, components.length)];
 			}
 			return result;
 		}
@@ -16,9 +16,9 @@ const jw = {
 		camelize: (str, separators = [' ', '_', '-']) => {
 			let separatorIndex;
 			separators.forEach(separator => {
-				console.log(`Checking for the '${separator}' separator...`);
+				// console.log(`Checking for the '${separator}' separator...`);
 				while ((separatorIndex = str.indexOf(separator)) !== -1) {
-					console.log(`Separator '${separator}' found at index ${separatorIndex}.`);
+					// console.log(`Separator '${separator}' found at index ${separatorIndex}.`);
 					str = str.substring(0, separatorIndex).concat(str[separatorIndex + 1].toUpperCase(), str.substring(separatorIndex + 2, str.length));
 				}
 			});
@@ -97,17 +97,16 @@ $.fn.makeEditable = function(linkedObject, linkedProperty, autoSelect = true) {
 		.keydown(event => {
 		switch (event.key) {
 			case 'Enter':
-			linkedObject[linkedProperty] = $(event.target).text();
+				linkedObject[linkedProperty] = $(event.target).text();
 			case 'Escape':
-			$(event.target).text(linkedObject[linkedProperty]);
+				$(event.target).text(linkedObject[linkedProperty]);
 				// Losing focus should take place in all above cases, hence no "break" statements above here
 				$(event.target).blur();
 				break;
 			}
 		})
 		.focus(event => {
-			const $element = $(event.target);
-			if ($element.data('auto-select')) $element.selectText();
+			if (this.data('auto-select')) this.selectText();
 		})
 		.blur(event => linkedObject[linkedProperty] = $(event.target).text());
 }
@@ -116,165 +115,126 @@ class KanbanBuilder {
 	constructor(ownClass, tag = 'div', classPrefix = 'kanban') {
 		this.id = jw.random.getString(20);
 		this.ownClass = ownClass;
+		this.classPrefix = classPrefix;
 		this.completeClassName = jw.strings.concatClass(classPrefix, ownClass);
-		this.$element = $(`<${tag}>`).addClass(this.completeClassName).attr('id', this.id);
+		this.$element = $(`<${tag}>`).addClass(this.completeClassName).attr('id', this.id).fadeIn();
 	}
 
 	add$(classNames, tag = 'div', $parentElement = this.$element) {
-		const jsObjectPropertyName = jw.strings.camelize(classNames[classNames.length - 1]);
-		const htmlClassString = jw.strings.concatClass(this.completeClassName, jw.strings.generateCompoundClass(classNames));
-		this[`\$${jsObjectPropertyName}`] = $(`<${tag}>`).$newElement.addClass(htmlClassString).appendTo($parentElement);
+		let lastClassName;
+		if ($.isArray(classNames)) {
+			lastClassName = classNames[classNames.length - 1];
+			classNames[0] = jw.strings.concatClass(this.classPrefix, classNames[0]);
+		} else {
+			lastClassName = classNames;
+			classNames = jw.strings.concatClass(this.classPrefix, classNames);
+		}
+		const jsObjectPropertyName = jw.strings.camelize(lastClassName);
+		const htmlClassString = jw.strings.generateCompoundClass(classNames);
+		return this[`\$${jsObjectPropertyName}`] = $(`<${tag}>`).addClass(htmlClassString).appendTo($parentElement);
+	}
+
+	addHeader(tag = 'div') {
+		this.add$('header', tag);
 		return this;
 	}
 
-	addHeader() {
-		return this.add$('header');
-	}
-
 	addDrag() {
-		return this.add$('drag', 'button', this.$header);
+		this.add$('drag', 'span', this.$header).addClass('fa fa-bars');
+		return this;
 	}
 
-	addTitle(tag) {
-		return this.add$('title', tag, this.$header).text('Enter ' + this.ownClass + ' title').makeEditable(this, 'title');
+	addTitle(tag = 'span') {
+		this.add$('title', tag, this.$header).text('Enter ' + this.ownClass + ' title').makeEditable(this, 'title').selectText();
+		return this;
 	}
 
 	addRemoveButton() {
-		return this.add$(['btn', `remove-${this.ownClass}`], 'button', this.$header);
+		this.add$(['btn', `remove-${this.ownClass}`], 'button', this.$header)
+			.addClass('fa fa-trash-o')
+			.click(() => this.remove());
+		return this;
 	}
 
 	setChildClass(childClass) {
 		this.childClass = childClass;
 		this.childrenMapName = childClass + 's';
-		this[childrenMapName] = {};
+		this[this.childrenMapName] = {};
 		this.addChildMethodName = jw.strings.camelize(`add ${this.childClass}`);
 		this.childContainerHtmlClass = jw.strings.concatClass(this.childClass, 'container');
+		this.completeChildContainerHtmlClass = jw.strings.concatClass(this.classPrefix, this.childContainerHtmlClass);
+		// console.log('childContainerHtmlClass: ' + this.childContainerHtmlClass);
 		this.childContainerObjectProperty = '$' + jw.strings.camelize(this.childContainerHtmlClass);
-		this[addChildMethodName] = function(child) {
-			this[childContainerObjectProperty].append(child.$element);
-			this[childrenMapName][child.id] = child;
-		}
+		// console.log('childContainerObjectProperty: ' + this.childContainerObjectProperty);
+		this[this.addChildMethodName] = child => {
+			// console.log(this.childContainerObjectProperty);
+			this[this.childContainerObjectProperty].append(child.$element);
+			this[this.childrenMapName][child.id] = child;
+		};
 		return this;
 	}
 
 	addChildContainer(tag = 'div') {
 		if (!this.childClass) return this;
-		this.add$(this.childContainerHtmlClass, tag);
-		this.$element.sortable({
-			connectWith: `.${this.completeClassName}`
-		})
+		// console.log('Adding child container for ' + this.childClass + ' elements.');
+		console.log('Child container class: ' + this.childContainerHtmlClass);
+		this.add$(this.childContainerHtmlClass, tag).sortable({
+			connectWith: `.${this.completeChildContainerHtmlClass}`,
+			handle: `.${this.classPrefix}-drag`
+		});
+		// console.log(this);
 		return this;
 	}
 
-	addAddChildButton(childClass) {
+	addAddChildButton() {
 		if (!this.childClass) return this;
-		this.add$(['btn', jw.strings.concatClass('add', this.childClass)], 'button', this.$header).click(this[addChildMethodName]);
+		// console.log(`${this.ownClass}.addChildMethodName: ${this.addChildMethodName}\n`);
+		// console.log(this[this.addChildMethodName]);
+		this.add$(['btn', jw.strings.concatClass('add', this.childClass)], 'button', this.$header)
+			.addClass('fa fa-plus-square')
+			.click(() => this[this.addChildMethodName](kanbanFactory.build(this.childClass)))
+		return this;
 	}
 
 	remove() {
+		// console.log(`Attempting removal of ${this.ownClass}.`);
+		this.$element.fadeOut(this.$element.remove);
 		if (this.parent) delete this.parent[this.ownClass + 's'][this.id];
-		this.$element.remove();
 	}
 
 }
 
-class KanbanBoard {
-	constructor(container, name) {
-		this.name = name;
-		this.columns = [];
-		this.generateHTML();
-		if (container) this.$element.prependTo(container);
-		if (!this.name) this.$title.text('Enter board name').selectText();
-	}
-
-	generateHTML() {
-		this.$element = $('<div>')
-			.addClass('kanban-board')
-			.attr('id', this.id);
-		this.$title = $('<h1>')
-			.addClass('kanban-board-title')
-			.makeEditable(this, 'name')
-			.appendTo(this.$element);
-		this.$controls = $('<div>')
-			.addClass('kanban-board-controls')
-			.appendTo(this.$element);
-		this.$btnAddColumn = $('<button>')
-			.addClass('kanban-btn kanban-btn-add-column')
-			.html('<i class="fa fa-lg fa-plus-square">')
-			.click(() => this.addColumn(new KanbanColumn()))
-			.appendTo(this.$controls);
-		this.$columnContainer = $('<ul>')
-			.addClass('kanban-board-column-container')
-			.sortable({
-				handle: '.kanban-drag-column',
-				revert: true,
-				tolerance: 'pointer'
-			})
-			.appendTo(this.$element);
-		return this.$element;
-	}
-
-	addColumn(column) {
-		this.columns.push(column);
-		column.parent = this;
-		this.$columnContainer.append(column.$element);
-	}
-}
-
-class KanbanColumn {
-	constructor(name) {
-		this.id = random.getString(20);
-		this.name = name;
-		this.cards = [];
-		this.generateHTML();
-		if (!this.name) this.$title.text('Enter column name').selectText();
-	}
-
-	generateHTML() {
-		this.$element = $('<li>')
-			.addClass('kanban-column')
-			.attr('id', this.id)
-		this.$header = $('<div>')
-			.addClass('kanban-column-header')
-			.appendTo(this.$element);
-		this.$dragIcon = $('<div>')
-			.addClass('kanban-drag kanban-drag-column')
-			.html('<i class="fa fa-lg fa-bars">')
-			.appendTo(this.$header);
-		this.$title = $('<h2>')
-			.addClass('kanban-column-title')
-			.makeEditable(this, 'name')
-			.appendTo(this.$header);
-		this.$controls = $('<div>')
-			.addClass('kanban-column-controls')
-			.appendTo(this.$element);
-		this.$btnAddCard = $('<button>')
-			.addClass('kanban-btn kanban-btn-add-card')
-			.html('<i class="fa fa-lg fa-plus-square">')
-			.appendTo(this.$controls);
-		this.$btnRemoveColumn = $('<button>')
-			.addClass('kanban-btn kanban-btn-remove-column')
-			.html('<i class="fa fa-lg fa-trash-o">')
-			.click(this.remove.bind(this))
-			.appendTo(this.$controls)
-		this.$cardContainer = $('<div>')
-			.addClass('kanban-column-card-container')
-			.appendTo(this.$element);
-		return this.$element;
-	}
-
-	addCard(card) {
-		this.cards.push(card);
-		card.parent = this;
-		this.$cardContainer.append(card.$element);
-	}
-
-	remove() {
-		this.$element.remove();
-		this.parent.columns = this.parent.columns.filter(item => item != this);
+const kanbanFactory = {
+	build: objectClass => {
+		switch (objectClass) {
+			case 'board':
+				return new KanbanBuilder('board')
+					.setChildClass('column')
+					.addHeader('h1')
+					.addTitle()
+					.addAddChildButton()
+					.addChildContainer();
+			case 'column':
+				return new KanbanBuilder('column')
+					.setChildClass('card')
+					.addHeader('h2')
+					.addDrag()
+					.addTitle()
+					.addRemoveButton()
+					.addAddChildButton()
+					.addChildContainer();
+			case 'card':
+				return new KanbanBuilder('card')
+					.addHeader('h3')
+					.addDrag()
+					.addTitle()
+					.addRemoveButton();
+		}
 	}
 }
 
 $(function() {
-	// const kt = new KanbanBoard($('#my-kanban'));
+	const kt = kanbanFactory.build('board')
+	kt.$element.appendTo('#my-kanban');
+	console.log(kt);
 })
