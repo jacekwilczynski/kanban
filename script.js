@@ -1,75 +1,3 @@
-const jw = {
-	random: {
-		getInteger: (min = 0, max = 1) => Math.floor(Math.random() * (max - min + 1) + min),
-		getString: (targetLength, components) => {
-			targetLength = targetLength || 10;
-			components = components || '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-			let result = '';
-			for (let i = 0; i < targetLength; i++) {
-				result += components[jw.random.getInteger(0, components.length)];
-			}
-			return result;
-		}
-	},
-
-	strings: {
-		camelize: (str, separators = [' ', '_', '-']) => {
-			let separatorIndex;
-			separators.forEach(separator => {
-				// console.log(`Checking for the '${separator}' separator...`);
-				while ((separatorIndex = str.indexOf(separator)) !== -1) {
-					// console.log(`Separator '${separator}' found at index ${separatorIndex}.`);
-					str = str.substring(0, separatorIndex).concat(str[separatorIndex + 1].toUpperCase(), str.substring(separatorIndex + 2, str.length));
-				}
-			});
-			return str;
-		},
-
-		concatClass: (...args) => {
-			const save = Array.prototype.toString;
-			Array.prototype.toString = function() {return this.join('-')};
-			const result = args.toString();
-			Array.prototype.toString = save;
-			return result;
-		},
-
-		generateCompoundClass: function(...args) {
-			if (args.length < 2) args = args[0];
-			if (!$.isArray(args)) return this.concatClass(args);
-			{
-				let result = this.concatClass(args[0]);
-				let lastClass = result;
-				let currentClass;
-				for (let i = 1; i < args.length; i++) {
-					currentClass = lastClass + '-' + this.concatClass(args[i]);
-					result += ' ' + currentClass;
-					lastClass = currentClass;
-				}
-				return result;
-			}
-		},
-
-		decamelize: (str, separator = '-') => {
-			for (let i = 0; i < str.length; i++) {
-				if (str[i] === str[i].toUpperCase()) {
-					str = str.substring(0, i).concat(separator, str.substring(i, str.length));
-					i += separator.length;
-				}
-			}
-			return str.toLowerCase();
-		}
-	}
-}
-
-/*const matchByType = (array, ...pairings) => {
-	let result = {};
-	for (pairing in pairings) {
-		const variableName = Object.keys(pairing)[0];
-		const variableType = pairing[variableName];
-		
-	}
-}*/
-
 $.fn.selectText = function() {
 	var range, selection;
 	setTimeout(() => {
@@ -90,52 +18,43 @@ $.fn.selectText = function() {
 	return this;
 }
 
-$.fn.makeEditable = function(linkedObject, linkedProperty, autoSelect = true) {
-	return this.text(linkedObject[linkedProperty])
-		.attr('contenteditable', 'true')
+$.fn.makeEditable = function(autoSelect = true) {
+	return this.attr('contenteditable', 'true')
 		.data('auto-select', autoSelect)
 		.keydown(event => {
-		switch (event.key) {
-			case 'Enter':
-				linkedObject[linkedProperty] = $(event.target).text();
-			case 'Escape':
-				$(event.target).text(linkedObject[linkedProperty]);
-				// Losing focus should take place in all above cases, hence no "break" statements above here
-				$(event.target).blur();
-				break;
-			}
+			if (event.key === 'Escape' || event.key === 'Enter')$(event.target).blur();
 		})
 		.focus(event => {
 			if (this.data('auto-select')) this.selectText();
-		})
-		.blur(event => linkedObject[linkedProperty] = $(event.target).text());
+		});
+}
+
+function concatClass(...args) {
+	const save = Array.prototype.toString;
+	Array.prototype.toString = function() {return this.join('-')};
+	const result = args.toString();
+	Array.prototype.toString = save;
+	return result;
 }
 
 class KanbanBuilder {
 	constructor(ownClass, tag = 'div', classPrefix = 'kanban') {
-		this.id = jw.random.getString(20);
 		this.ownClass = ownClass;
 		this.classPrefix = classPrefix;
-		this.completeClassName = jw.strings.concatClass(classPrefix, ownClass);
-		this.$element = $(`<${tag}>`).addClass(this.completeClassName).attr('id', this.id).fadeIn();
+		this.prefixedClass = concatClass(classPrefix, ownClass);
+		this.$element = $(`<${tag}>`).addClass(this.prefixedClass).fadeIn();
 	}
 
-	add$(classNames, tag = 'div', $parentElement = this.$element) {
-		let lastClassName;
-		if ($.isArray(classNames)) {
-			lastClassName = classNames[classNames.length - 1];
-			classNames[0] = jw.strings.concatClass(this.classPrefix, classNames[0]);
-		} else {
-			lastClassName = classNames;
-			classNames = jw.strings.concatClass(this.classPrefix, classNames);
-		}
-		const jsObjectPropertyName = jw.strings.camelize(lastClassName);
-		const htmlClassString = jw.strings.generateCompoundClass(classNames);
-		return this[`\$${jsObjectPropertyName}`] = $(`<${tag}>`).addClass(htmlClassString).appendTo($parentElement);
+	add$(classNames, tag = 'div', $parent = this.$element) {
+		const prefixClassNames = () => $.isArray(classNames)
+			? classNames.reduce((a, c) => a + ' ' + concatClass(this.classPrefix, c), '')
+			: concatClass(this.classPrefix, classNames);
+		const prefixedClassName = prefixClassNames();
+		return $(`<${tag}>`).addClass(prefixedClassName).appendTo($parent);
 	}
 
 	addHeader(tag = 'div') {
-		this.add$('header', tag);
+		this.$header = this.add$('header', tag);
 		return this;
 	}
 
@@ -145,12 +64,15 @@ class KanbanBuilder {
 	}
 
 	addTitle(tag = 'span') {
-		this.add$('title', tag, this.$header).text('Enter ' + this.ownClass + ' title').makeEditable(this, 'title').selectText();
+		this.add$('title', tag, this.$header)
+			.text('Enter ' + this.ownClass + ' title')
+			.makeEditable()
+			.selectText();
 		return this;
 	}
 
 	addRemoveButton() {
-		this.add$(['btn', `remove-${this.ownClass}`], 'button', this.$header)
+		this.add$(['btn', 'btn-remove'], 'button', this.$header)
 			.addClass('fa fa-trash-o')
 			.click(() => this.remove());
 		return this;
@@ -158,48 +80,44 @@ class KanbanBuilder {
 
 	setChildClass(childClass) {
 		this.childClass = childClass;
-		this.childrenMapName = childClass + 's';
-		this[this.childrenMapName] = {};
-		this.addChildMethodName = jw.strings.camelize(`add ${this.childClass}`);
-		this.childContainerHtmlClass = jw.strings.concatClass(this.childClass, 'container');
-		this.completeChildContainerHtmlClass = jw.strings.concatClass(this.classPrefix, this.childContainerHtmlClass);
-		// console.log('childContainerHtmlClass: ' + this.childContainerHtmlClass);
-		this.childContainerObjectProperty = '$' + jw.strings.camelize(this.childContainerHtmlClass);
-		// console.log('childContainerObjectProperty: ' + this.childContainerObjectProperty);
-		this[this.addChildMethodName] = child => {
-			// console.log(this.childContainerObjectProperty);
-			this[this.childContainerObjectProperty].append(child.$element);
-			this[this.childrenMapName][child.id] = child;
-		};
+		this.childContainerClass = concatClass(this.childClass, 'container');
+		this.prefixedChildContainerClass = concatClass(this.classPrefix, this.childContainerClass);
 		return this;
 	}
 
 	addChildContainer(tag = 'div') {
-		if (!this.childClass) return this;
-		// console.log('Adding child container for ' + this.childClass + ' elements.');
-		console.log('Child container class: ' + this.childContainerHtmlClass);
-		this.add$(this.childContainerHtmlClass, tag).sortable({
-			connectWith: `.${this.completeChildContainerHtmlClass}`,
-			handle: `.${this.classPrefix}-drag`
-		});
-		// console.log(this);
+		if (this.childClass) {
+			this.$childContainer = this.add$(['child-container',
+				this.childContainerClass], tag).sortable({
+					connectWith: `.${this.prefixedChildContainerClass}`,
+					handle: `.${this.classPrefix}-drag`,
+					tolerance: 'pointer'
+				}
+			);
+		}	
+		return this;
+	}
+
+	addChild(tag = 'div') {
+		if (this.$childContainer) this.add$(childClass, tag, '>.child-container');
 		return this;
 	}
 
 	addAddChildButton() {
-		if (!this.childClass) return this;
-		// console.log(`${this.ownClass}.addChildMethodName: ${this.addChildMethodName}\n`);
-		// console.log(this[this.addChildMethodName]);
-		this.add$(['btn', jw.strings.concatClass('add', this.childClass)], 'button', this.$header)
-			.addClass('fa fa-plus-square')
-			.click(() => this[this.addChildMethodName](kanbanFactory.build(this.childClass)))
+		if (this.childClass) {
+			this.add$(['btn', 'btn-add-child'], 'button', this.$header)
+				.addClass('fa fa-plus-square')
+				.click(() => {
+					const child = kanbanFactory.build(this.childClass);
+					this.$childContainer.append(child.$element);
+				}
+			);
+		}
 		return this;
 	}
 
 	remove() {
-		// console.log(`Attempting removal of ${this.ownClass}.`);
-		this.$element.fadeOut(this.$element.remove);
-		if (this.parent) delete this.parent[this.ownClass + 's'][this.id];
+		this.$element.fadeOut(function() {this.remove()});
 	}
 
 }
