@@ -47,7 +47,7 @@ $.fn.selectText = function() {
 	return this;
 }
 
-$.fn.makeEditable = function(onBlur, autoSelect = true) {
+$.fn.makeEditable = function(onblur, autoSelect = true) {
 	return this.attr('contenteditable', 'true')
 		.data('auto-select', autoSelect)
 		.keydown(event => {
@@ -56,10 +56,10 @@ $.fn.makeEditable = function(onBlur, autoSelect = true) {
 				$(event.target).blur();
 			}
 		})
-		.blur(() => onBlur(this.text()))
+		.blur(() => onblur(this.text()))
 		.focus(() => {
-			if (this.data('auto-select')) this.selectText();
 			this.data('backup-value', this.text());
+			if (this.data('auto-select')) this.selectText();
 		});
 }
 
@@ -70,10 +70,9 @@ class KanbanBuilder {
 		this.ownClass = '';
 		this.tag = 'div';
 		this.classPrefix = 'kanban';
-		this.loading = false;
-		Object.defineProperty(this, 'loading', {enumerable: false});
+		Object.defineProperty(this, 'process', {value: 'creatingNew', writable: true, enumerable: false});
 
-		// Overwrite those properties that were passed in the argument object
+		// Overwrite those properties that were passed in the argument
 		Object.assign(this, template);
 
 		// Create main element
@@ -85,11 +84,12 @@ class KanbanBuilder {
 			.attr('id', this.id)
 			.fadeIn();
 
-		if (!this.loading) kanbanLocalStorage.post(this.id, this);
+		if (this.process === 'creatingNew') kanbanLocalStorage.post(this.id, this);
 	}
 
 	/**
 	* add$ - adds new jQuery element to this object
+	*
 	* @params
 	*     config (Object): {
 	*         classNames (string or array of strings):
@@ -107,6 +107,7 @@ class KanbanBuilder {
 	*         tag (string):
 	*             - the HTML tag to use (default: 'div'),
 	*     }
+	*
 	* @return jQuery wrapper for the created object
 	*  
 	*/
@@ -116,8 +117,7 @@ class KanbanBuilder {
 			.addClass(prefixClassNames(config.classNames, this.classPrefix));
 		if (config.parent) $newElement.appendTo($(config.parent));
 		if (config.jsObjectProperty) {
-			this[config.jsObjectProperty] = $newElement;
-			Object.defineProperty(this, config.jsObjectProperty, {enumerable: false});
+			Object.defineProperty(this, config.jsObjectProperty, {value: $newElement, enumerable: false});
 		}
 		return $newElement;
 	}
@@ -126,7 +126,6 @@ class KanbanBuilder {
 		this.add$({
 			classNames: 'header',
 			tag: tag,
-			parent: this.$element,
 			jsObjectProperty: '$header'});
 		return this;
 	}
@@ -147,9 +146,9 @@ class KanbanBuilder {
 			parent: this.$header})
 			.text('Enter ' + this.ownClass + ' title')
 			.makeEditable(title => kanbanLocalStorage.put(this.id, 'title', title));
-		if (this.loading) {
+		if (this.process === 'loading') {
 			$title.text(this.title);
-		} else {
+		} else if (this.process === 'creatingNew') {
 			$title.selectText();
 		}
 		return this;
@@ -165,6 +164,7 @@ class KanbanBuilder {
 		return this;
 	}
 
+	// for debugging
 	addLogButton() {
 		this.add$({
 			classNames: ['btn', 'btn-log'],
@@ -177,7 +177,7 @@ class KanbanBuilder {
 
 	setChildClass(childClass) {
 		this.childClass = childClass;
-		if (!this.loading) kanbanLocalStorage.put(this.id, 'childClass', this.childClass);
+		if (this.process === 'creatingNew') kanbanLocalStorage.put(this.id, 'childClass', this.childClass);
 		return this;
 	}
 
@@ -256,10 +256,10 @@ class KanbanBuilder {
 
 	save() {
 		kanbanLocalStorage.storage.setItem('kanban-default', this.id);
-		// this.$element.find('.kanban-btn-save').fadeOut(function() {this.remove()});
 		return this;
 	}
 
+	// for debugging
 	log() {
 		console.log(JSON.stringify(kanbanLocalStorage.get(this.id)));
 	}
@@ -284,25 +284,6 @@ const kanbanLocalStorage = {
 }
 
 const kanbanFactory = {
-	load: function(id) {
-		const savedData = kanbanLocalStorage.get(id);
-		if (!savedData) return null;
-		savedData.loading = true;
-
-		const current = this.build(savedData);
-		console.log(`${current.ownClass} id=${current.id} nextSibling=${current.nextSibling}`);
-		if (current.firstChild) {
-			let child = this.load(current.firstChild);
-			do {
-				current.$childContainer.append(child.$element);
-				Object.defineProperty(child, 'nextSibling', {enumerable: false});
-				child = this.load(child.nextSibling);
-			} while (child);
-			Object.defineProperty(current, 'firstChild', {enumerable: false});
-		}
-		delete current.loading;
-		return current;
-	},
 	build: function(template) {
 		if (typeof template !== 'object') template = {ownClass: template};
 		switch (template.ownClass) {
@@ -334,6 +315,24 @@ const kanbanFactory = {
 					// .addLogButton()
 					.addRemoveButton();
 		}
+	},
+	load: function(id) {
+		const savedObjectData = kanbanLocalStorage.get(id);
+		if (!savedObjectData) return null;
+
+		savedObjectData.process = 'loading';
+		const objectBeingLoaded = this.build(savedObjectData);
+
+		if (objectBeingLoaded.firstChild) {
+			let child = this.load(objectBeingLoaded.firstChild);
+			do {
+				objectBeingLoaded.$childContainer.append(child.$element);
+				Object.defineProperty(child, 'nextSibling', {enumerable: false});
+				child = this.load(child.nextSibling);
+			} while (child);
+			Object.defineProperty(objectBeingLoaded, 'firstChild', {enumerable: false});
+		}
+		return objectBeingLoaded;
 	}
 }
 
