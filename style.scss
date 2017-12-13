@@ -54,10 +54,6 @@ $font_primary: Lato;
 		padding: 30px;
 	}
 
-	.kanban-column-container {
-		padding: 0 30px;
-	}
-
 }
 
 .kanban-column {
@@ -87,7 +83,7 @@ $font_primary: Lato;
 
 }
 
-/* GLOBAL SUB-COMPONENTS */
+/* UNIVERSAL SUB-COMPONENTS */
 
 .kanban-header {
 	display: flex;
@@ -118,6 +114,10 @@ $font_primary: Lato;
 }
 
 /* SPECIFIC SUB-COMPONENTS */
+
+.kanban-column-container {
+	padding: 0 30px;
+}
 
 .kanban-card-container {
 	min-height: 50px;

@@ -15,8 +15,6 @@
     color: #000;
     margin-bottom: 20px;
     padding: 30px; }
-  .kanban-board .kanban-column-container {
-    padding: 0 30px; }
 
 .kanban-column {
   background-color: #39ba48;
@@ -38,7 +36,7 @@
   .kanban-card:last-child {
     padding-bottom: 25px; }
 
-/* GLOBAL SUB-COMPONENTS */
+/* UNIVERSAL SUB-COMPONENTS */
 .kanban-header {
   display: flex; }
 
@@ -72,6 +70,9 @@
   margin-right: 0.5em; }
 
 /* SPECIFIC SUB-COMPONENTS */
+.kanban-column-container {
+  padding: 0 30px; }
+
 .kanban-card-container {
   min-height: 50px; }
 
